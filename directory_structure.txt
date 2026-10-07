@@ -1,0 +1,69 @@
+momentum-bot/
+├── .env                          # 環境変数（トークン、チャンネルID、APIキー等）
+├── .env.example                  # 環境変数のテンプレート
+├── .gitignore                    # .env, data/, __pycache__ 等を除外
+├── requirements.txt              # 依存パッケージ一覧（または pyproject.toml）
+├── README.md                     # セットアップ・運用ドキュメント
+├── Dockerfile                    # 常時稼働用コンテナ定義（任意）
+├── docker-compose.yml            # ボリューム永続化用設定（任意）
+│
+├── data/                         # SQLite DBファイル保存ディレクトリ
+│   └── momentum.db               # 実データ（WALファイル等も同階層に生成）
+│
+├── src/                          # ソースコード本体
+│   ├── __init__.py
+│   ├── config.py                 # 環境変数の読み込み・バリデーション（11章準拠）
+│   ├── main.py                   # Botエントリポイント（初期化・起動処理）
+│   │
+│   ├── db/                       # データベース接続・定義層
+│   │   ├── __init__.py
+│   │   ├── connection.py         # PRAGMA(WAL等)適用、接続プール、トランザクション管理
+│   │   ├── schema.sql            # テーブル定義・インデックス・CHECK制約DDL（9章準拠）
+│   │   └── repository.py         # tasks, action_logs, bot_messages, meta のCRUD
+│   │
+│   ├── core/                     # ビジネスロジック・コア基盤
+│   │   ├── __init__.py
+│   │   ├── lock.py               # asyncio.Lock（DBトランザクション＋UI描画ロック）
+│   │   ├── queue.py              # 自然文メッセージの直列入力キュー
+│   │   ├── time_utils.py         # JST/UTC変換、ISO8601ミリ秒処理、運用日（04:00境界）計算
+│   │   ├── state_engine.py       # スロット割当、退避先判定（5.1）、押し出し・復元（6.3）
+│   │   └── undo_engine.py        # 3世代履歴管理、LIFOロールバック実行処理（6章準拠）
+│   │
+│   ├── gemini/                   # 自然文解析・Gemini API連携層
+│   │   ├── __init__.py
+│   │   ├── client.py             # API呼び出し、10秒タイムアウト・2秒待機リトライ処理
+│   │   ├── schemas.py            # Pydantic等による構造化JSON出力スキーマ（4.2準拠）
+│   │   ├── prompts.py            # システムプロンプト、スナップショット一覧生成（T番号付与）
+│   │   └── validator.py          # All-or-Nothing事前検証（競合遮断、500字チェック等）
+│   │
+│   ├── bot/                      # Discord Bot UI・イベントハンドラ層
+│   │   ├── __init__.py
+│   │   ├── client.py             # discord.Client / commands.Bot 拡張クラス、on_ready
+│   │   ├── cogs/                 # コマンド・リスナーモジュール
+│   │   │   ├── inbox_cog.py      # #task-inbox の自然文監視・即時返信・直列キュー連携
+│   │   │   └── slash_commands.py # /undo, /reset-day, /refresh の実装（10.1準拠）
+│   │   ├── views/                # Discord UIコンポーネント（Persistent View）
+│   │   │   ├── today_view.py     # #today-focus 用ボタン群（初手/完了/控え室/Undo）
+│   │   │   ├── backlog_view.py   # #backlog 用ページネーション・昇格メニュー
+│   │   │   ├── overdue_view.py   # #overdue-tasks 用緊急昇格メニュー
+│   │   │   └── brief_view.py     # 朝リマインド用動的ボタン
+│   │   └── renderers/            # Embed描画・メッセージ生成
+│   │       ├── embeds.py         # 各チャンネル用Embedビルダー（❗警告、書式反映）
+│   │       └── message_manager.py# 親メッセージ復旧、過去ログ掃除、At-Least Once再送
+│   │
+│   └── jobs/                     # バックグラウンド定期タスク
+│       ├── __init__.py
+│       ├── scheduler.py          # 定期ループ実行基盤（tasks.loop 等）
+│       ├── overdue_checker.py    # 60秒間隔の期限超過監視・未送信リカバリ（7.1準拠）
+│       ├── daily_reset.py        # 04:00 JST 日次リセット・30日物理削除（7.2準拠）
+│       ├── morning_brief.py      # 08:00 JST 朝リマインド投稿（7.3準拠）
+│       └── catchup.py            # 起動時キャッチアップ処理（7.4準拠）
+│
+└── tests/                        # テストスイート（12章 受け入れテスト準拠）
+    ├── conftest.py               # テスト用DB・フィクスチャ設定
+    ├── test_time_utils.py        # 運用日境界値テスト（TC-029等）
+    ├── test_state_engine.py      # スロット管理・詰めなし・退避テスト（TC-001〜TC-005）
+    ├── test_undo_engine.py       # ロールバック・押し出し・履歴保護テスト（TC-006〜TC-010, TC-026）
+    ├── test_gemini_pipeline.py   # All-or-Nothing・曖昧性防御テスト（TC-011〜TC-016）
+    ├── test_jobs.py              # 定期監視・起動時キャッチアップテスト（TC-017〜TC-021）
+    └── test_concurrency.py       # 並行UI操作・同時昇格テスト（TC-025, TC-027, TC-028）
