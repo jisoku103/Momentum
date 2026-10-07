@@ -30,10 +30,13 @@ class GeminiClient:
     def __init__(self, config: Config) -> None:
         self.config = config
         self.model_name = config.GEMINI_MODEL
+        # Suppress AFC function calling warning from google_genai SDK
+        logging.getLogger("google_genai.models").setLevel(logging.ERROR)
+
         # Initialize GenAI Client with optional api_key
         api_key = config.GEMINI_API_KEY
         http_options = types.HttpOptions(
-            timeout=int(10000),
+            timeout=int(15000),
             retry_options=types.HttpRetryOptions(attempts=1),
         )
         self.client = (

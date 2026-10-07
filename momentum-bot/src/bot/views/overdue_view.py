@@ -87,7 +87,7 @@ async def handle_overdue_interaction(
         return
 
     # 2. Defer update
-    await interaction.response.defer_update()
+    await interaction.response.defer()
 
     if custom_id == "btn:overdue:prev":
         bot.message_manager.change_overdue_page(delta=-1)

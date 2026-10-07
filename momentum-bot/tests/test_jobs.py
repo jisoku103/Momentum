@@ -263,7 +263,7 @@ async def test_tc020_morning_brief_recommendation_and_promotion(
     # Test button promotion interaction
     mock_interaction = MagicMock(spec=discord.Interaction)
     mock_interaction.user.id = mock_bot_for_jobs.config.OWNER_USER_ID
-    mock_interaction.response.defer_update = AsyncMock()
+    mock_interaction.response.defer = AsyncMock()
     mock_interaction.message = MagicMock()
     mock_interaction.message.edit = AsyncMock()
 

@@ -88,7 +88,7 @@ async def handle_backlog_interaction(
         return
 
     # 2. Defer update
-    await interaction.response.defer_update()
+    await interaction.response.defer()
 
     if custom_id == "btn:backlog:prev":
         bot.message_manager.change_backlog_page(delta=-1)

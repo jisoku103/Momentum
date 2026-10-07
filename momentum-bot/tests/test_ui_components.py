@@ -152,8 +152,8 @@ async def test_tc023_reboot_component_resilience_and_routing(
     # Dispatch to on_interaction
     await mock_bot.on_interaction(interaction)
 
-    # Verify defer_update was called
-    interaction.response.defer_update.assert_awaited_once()
+    # Verify defer was called
+    interaction.response.defer.assert_awaited_once()
 
     # Verify task was completed in DB
     updated_task = await task_repo.get_task(task.id)

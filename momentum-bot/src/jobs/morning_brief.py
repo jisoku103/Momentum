@@ -190,7 +190,7 @@ async def handle_brief_interaction(
         return
 
     # 2. Defer update
-    await interaction.response.defer_update()
+    await interaction.response.defer()
 
     task_id = custom_id.replace("btn:brief:promote:", "")
     if not task_id:

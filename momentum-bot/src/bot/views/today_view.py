@@ -96,7 +96,7 @@ async def handle_today_interaction(
         return
 
     # 2. Prevent 3s timeout (Section 2.1 & 8.1)
-    await interaction.response.defer_update()
+    await interaction.response.defer()
 
     # 3. Route by custom_id
     parts = custom_id.split(":")
