@@ -250,6 +250,50 @@ class TaskRepository:
         cursor = await self.conn.execute(sql)
         return cursor.rowcount
 
+    async def get_completed_counts(
+        self,
+        day_boundary_hour: int = 4,
+    ) -> tuple[int, int]:
+        """Return (today_completed_count, total_completed_count) according to Section 8.1.
+
+        - Today completed: status='completed' and completed_at >= start of current business day (in UTC)
+        - Total completed: status='completed' all-time count
+        """
+        from datetime import datetime, time, timedelta
+        from src.core.time_utils import TIMEZONE_JST, format_utc_iso, now_jst
+
+        # Calculate start of current business day in JST
+        now_j = now_jst()
+        # If current hour < day_boundary_hour, business date started yesterday at day_boundary_hour
+        if now_j.hour < day_boundary_hour:
+            start_date = (now_j - timedelta(days=1)).date()
+        else:
+            start_date = now_j.date()
+
+        day_start_jst = datetime.combine(
+            start_date,
+            time(hour=day_boundary_hour, minute=0, second=0),
+            tzinfo=TIMEZONE_JST,
+        )
+        day_start_utc_iso = format_utc_iso(day_start_jst)
+
+        # 1. Today completed count
+        sql_today = """
+        SELECT COUNT(*) FROM tasks
+        WHERE status = 'completed' AND completed_at >= ?;
+        """
+        cursor_today = await self.conn.execute(sql_today, (day_start_utc_iso,))
+        row_today = await cursor_today.fetchone()
+        today_count = row_today[0] if row_today else 0
+
+        # 2. Total completed count
+        sql_total = "SELECT COUNT(*) FROM tasks WHERE status = 'completed';"
+        cursor_total = await self.conn.execute(sql_total)
+        row_total = await cursor_total.fetchone()
+        total_count = row_total[0] if row_total else 0
+
+        return today_count, total_count
+
 
 class ActionLogRepository:
     """Repository for action_logs table operations."""
