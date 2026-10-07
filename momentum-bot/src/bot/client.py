@@ -23,6 +23,9 @@ from src.bot.views.today_view import handle_today_interaction
 from src.config import Config
 from src.db.connection import get_connection, init_db
 from src.gemini.client import GeminiClient
+from src.jobs.catchup import execute_catchup
+from src.jobs.morning_brief import handle_brief_interaction
+from src.jobs.scheduler import JobScheduler
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +46,7 @@ class MomentumBot(commands.Bot):
         self.config = config
         self.gemini_client = GeminiClient(config)
         self.message_manager = MessageManager(self)
+        self.scheduler = JobScheduler(self)
 
     def get_db(self) -> AsyncIterator[aiosqlite.Connection]:
         """Convenience helper to yield a configured DB connection."""
@@ -66,11 +70,21 @@ class MomentumBot(commands.Bot):
     async def on_ready(self) -> None:
         """Called when bot successfully connects and caches are ready."""
         logger.info(f"Logged in as {self.user.name} ({self.user.id})")
-        # Render or self-heal pinned screens in fixed 3 channels on startup (Section 8.4)
+        # 1. Execute startup catchup and done-log recovery (Section 7.4)
+        try:
+            catchup_result = await execute_catchup(self)
+            logger.info(f"Startup catchup completed: {catchup_result}")
+        except Exception as e:
+            logger.error(f"Failed to execute startup catchup: {e}")
+
+        # 2. Render or self-heal pinned screens in fixed 3 channels on startup (Section 8.4)
         try:
             await self.message_manager.render_all_pinned()
         except Exception as e:
             logger.error(f"Failed to render pinned screens on ready: {e}")
+
+        # 3. Start background periodic monitoring loop
+        self.scheduler.start()
 
     async def on_interaction(self, interaction: discord.Interaction) -> None:
         """Global interaction listener routing component interactions by custom_id prefix (Section 8).
@@ -92,6 +106,10 @@ class MomentumBot(commands.Bot):
 
             if custom_id.startswith("btn:overdue:") or custom_id.startswith("select:overdue:"):
                 await handle_overdue_interaction(self, interaction, custom_id)
+                return
+
+            if custom_id.startswith("btn:brief:promote:"):
+                await handle_brief_interaction(self, interaction, custom_id)
                 return
 
         # Let discord.py process slash commands and other interactions normally
