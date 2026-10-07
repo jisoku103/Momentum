@@ -32,7 +32,15 @@ class GeminiClient:
         self.model_name = config.GEMINI_MODEL
         # Initialize GenAI Client with optional api_key
         api_key = config.GEMINI_API_KEY
-        self.client = genai.Client(api_key=api_key) if api_key else genai.Client()
+        http_options = types.HttpOptions(
+            timeout=int(10000),
+            retry_options=types.HttpRetryOptions(attempts=1),
+        )
+        self.client = (
+            genai.Client(api_key=api_key, http_options=http_options)
+            if api_key
+            else genai.Client(http_options=http_options)
+        )
 
     async def parse_natural_language(
         self,

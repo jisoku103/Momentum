@@ -49,10 +49,21 @@ class MessageManager:
         self._overdue_page += delta
 
     async def render_all_pinned(self, force_cleanup: bool = False) -> None:
-        """Re-render all 3 pinned channels."""
-        await self.render_today_focus(force_cleanup=force_cleanup)
-        await self.render_backlog(force_cleanup=force_cleanup)
-        await self.render_overdue(force_cleanup=force_cleanup)
+        """Re-render all 3 pinned channels with individual error isolation."""
+        for name, render_func in (
+            ("today_focus", self.render_today_focus),
+            ("backlog", self.render_backlog),
+            ("overdue", self.render_overdue),
+        ):
+            try:
+                await render_func(force_cleanup=force_cleanup)
+            except discord.Forbidden as e:
+                logger.error(
+                    f"Permission denied rendering {name} screen (code: {e.code}): "
+                    f"Please ensure Bot has 'Send Messages' and 'Embed Links' in the channel."
+                )
+            except Exception as e:
+                logger.error(f"Failed to render {name} screen: {e}", exc_info=True)
 
     async def render_today_focus(self, force_cleanup: bool = False) -> None:
         """Render the pinned parent message in #today-focus."""

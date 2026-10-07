@@ -38,6 +38,19 @@ class InboxCog(commands.Cog):
         """Gracefully stop queue worker when cog unloads."""
         await self.queue.stop()
 
+    async def _safe_reply(self, message: discord.Message, content: str) -> discord.Message:
+        """Safely reply to a message using fail_if_not_exists=False."""
+        try:
+            ref = message.to_reference(fail_if_not_exists=False)
+            return await message.channel.send(content, reference=ref)
+        except Exception:
+            if hasattr(message, "reply"):
+                try:
+                    return await message.reply(content)
+                except TypeError:
+                    pass
+            return await message.channel.send(content)
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
         """Handle incoming messages in #task-inbox."""
@@ -55,15 +68,15 @@ class InboxCog(commands.Cog):
         # 3. 500-character pre-check (Section 4.1 & TC-014)
         length_error = validate_message_length(message.content)
         if length_error:
-            await message.reply(length_error, fail_if_not_exists=False)
+            await self._safe_reply(message, length_error)
             return
 
         # 4. Instant feedback reply
-        feedback_msg = await message.reply("⏳ 整理中…", fail_if_not_exists=False)
+        feedback_msg = await self._safe_reply(message, "⏳ 整理中…")
 
         # 5. Enqueue for serial processing
         async def reply_callback(text: str) -> None:
-            await message.reply(text, fail_if_not_exists=False)
+            await self._safe_reply(message, text)
 
         item = InboxMessageItem(
             content=message.content,

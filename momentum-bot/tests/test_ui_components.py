@@ -292,3 +292,42 @@ def test_embed_builders_output() -> None:
     )
     did_msg = format_done_log_message(t_did)
     assert "⚡ **アクション記録!** Did Action" in did_msg
+
+
+@pytest.mark.asyncio
+async def test_inbox_cog_safe_reply_and_on_message(mock_bot: MomentumBot) -> None:
+    """Verify InboxCog uses safe_reply with fail_if_not_exists=False without TypeError."""
+    from src.bot.cogs.inbox_cog import InboxCog
+
+    cog = InboxCog(mock_bot)
+
+    mock_msg = MagicMock(spec=discord.Message)
+    mock_msg.author = MagicMock()
+    mock_msg.author.bot = False
+    mock_msg.author.id = mock_bot.config.OWNER_USER_ID
+    mock_msg.channel = MagicMock()
+    mock_msg.channel.id = mock_bot.config.CH_TASK_INBOX
+    mock_msg.channel.send = AsyncMock()
+    mock_msg.is_system.return_value = False
+    mock_msg.content = "タスクを追加して"
+    mock_msg.id = 123456789
+
+    mock_ref = MagicMock()
+    mock_msg.to_reference.return_value = mock_ref
+
+    # 1. Test _safe_reply
+    await cog._safe_reply(mock_msg, "⏳ 整理中…")
+    mock_msg.to_reference.assert_called_with(fail_if_not_exists=False)
+    mock_msg.channel.send.assert_awaited_with("⏳ 整理中…", reference=mock_ref)
+
+    # 2. Test on_message triggers safe_reply for feedback
+    mock_msg.channel.send.reset_mock()
+    mock_msg.to_reference.reset_mock()
+    with patch.object(cog.queue, "enqueue", new_callable=AsyncMock) as mock_enqueue:
+        await cog.on_message(mock_msg)
+        mock_msg.to_reference.assert_called_with(fail_if_not_exists=False)
+        mock_msg.channel.send.assert_awaited_with("⏳ 整理中…", reference=mock_ref)
+        mock_enqueue.assert_awaited_once()
+
+    await cog.cog_unload()
+
