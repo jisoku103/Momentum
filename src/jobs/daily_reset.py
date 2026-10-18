@@ -5,7 +5,7 @@ Handles:
   - Today slot sorting evacuation into backlog/overdue (Undoable as 1 batch)
   - Physical deletion cleanup for 30-day soft-deleted tasks (protecting action_logs)
   - meta.last_daily_job_date update
-  - Announcement in #task-inbox and re-rendering of all 3 pinned channels
+  - Re-rendering of all 3 pinned channels
 """
 
 from __future__ import annotations
@@ -91,13 +91,5 @@ async def execute_daily_reset(
 
         # 4. Re-render all 3 pinned screens (Section 7.2 Step 4)
         await bot.message_manager.render_all_pinned()
-
-        # 5. Post notification to #task-inbox
-        inbox_channel = bot.get_channel(bot.config.CH_TASK_INBOX)
-        if inbox_channel:
-            try:
-                await inbox_channel.send("🌅 新しい一日です。スロットをリセットしました！")
-            except Exception as e:
-                logger.warning(f"Failed to post daily reset message in #task-inbox: {e}")
 
     return result
